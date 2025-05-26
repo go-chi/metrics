@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+	"github.com/go-chi/metrics"
 	"github.com/go-chi/transport"
-	"github.com/golang-cz/metrics"
 )
 
 // Custom label types for typed metrics

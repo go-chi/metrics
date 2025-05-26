@@ -1,4 +1,4 @@
-module github.com/golang-cz/metrics
+module github.com/go-chi/metrics
 
 go 1.24.2
 
