@@ -1,9 +1,9 @@
 package metrics
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -11,21 +11,21 @@ import (
 
 var (
 	labelCache sync.Map // map[reflect.Type][]string
+
+	labelValidator = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
 )
 
-type NoLabels struct{}
-
-var labelSanitizer = regexp.MustCompile(`[^a-z0-9_]`)
-
-func sanitizeLabel(s string) string {
-	s = labelSanitizer.ReplaceAllString(strings.ToLower(s), "_")
-	if len(s) > 0 && s[0] >= '0' && s[0] <= '9' {
-		s = "_" + s // Prometheus label names can't start with a digit
+// mustBeValidMetricName validates a metric name and panics if it doesn't match the required Prometheus format.
+func mustBeValidMetricName(s string) string {
+	if !labelValidator.MatchString(s) {
+		panic("invalid metric name: " + s + " (must match [a-z_][a-z0-9_]*)")
 	}
 	return s
 }
 
-func labelKeys[T any]() []string {
+// mustLabelKeys returns the list of labels defined as struct tags, e.g. `label:"some_name"`,
+// and panics if any of the labels are empty or invalid.
+func mustLabelKeys[T any]() []string {
 	var keys []string
 	var zero T
 	v := reflect.ValueOf(zero)
@@ -37,13 +37,20 @@ func labelKeys[T any]() []string {
 	}
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
-		label := sanitizeLabel(t.Field(i).Name)
-		keys = append(keys, label)
+		field := t.Field(i)
+		labelName := field.Tag.Get("label")
+		if labelName == "" {
+			panic(fmt.Sprintf("missing `label` struct tag in %v type %v { %s `label:\"\"` }", t.PkgPath(), t.Name(), field.Name))
+		}
+		if !labelValidator.MatchString(labelName) {
+			panic(fmt.Sprintf("invalid `label` name in %v type %v { %s `label:\"%s\"` }: must match [a-z_][a-z0-9_]*", t.PkgPath(), t.Name(), field.Name, labelName))
+		}
+		keys = append(keys, labelName)
 	}
 	return keys
 }
 
-func structToLabels[T any](labelStruct T) prometheus.Labels {
+func mustStructLabels[T any](labelStruct T) prometheus.Labels {
 	labels := make(prometheus.Labels)
 	v := reflect.ValueOf(labelStruct)
 	if v.Kind() == reflect.Ptr {
@@ -60,7 +67,15 @@ func structToLabels[T any](labelStruct T) prometheus.Labels {
 	} else {
 		keys = make([]string, v.NumField())
 		for i := 0; i < v.NumField(); i++ {
-			keys[i] = sanitizeLabel(t.Field(i).Name)
+			field := t.Field(i)
+			labelName := field.Tag.Get("label")
+			if labelName == "" {
+				panic("missing label struct tag for field: " + field.Name)
+			}
+			if !labelValidator.MatchString(labelName) {
+				panic("invalid label name: " + labelName + " (must match [a-z_][a-z0-9_]*)")
+			}
+			keys[i] = labelName
 		}
 		labelCache.Store(t, keys)
 	}

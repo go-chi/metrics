@@ -20,8 +20,8 @@ type HTTPLabels struct {
 }
 
 type JobLabels struct {
-	Name   string
-	Status string
+	Name   string `label:"name"`
+	Status string `label:"status"`
 }
 
 func main() {

@@ -16,10 +16,10 @@ import "github.com/prometheus/client_golang/prometheus"
 // HistogramWith creates a histogram metric with typed labels
 func HistogramWith[T any](name, help string, buckets []float64) HistogramMetric[T] {
 	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    sanitizeLabel(name),
+		Name:    mustBeValidMetricName(name),
 		Help:    help,
 		Buckets: buckets,
-	}, labelKeys[T]())
+	}, mustLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return HistogramMetric[T]{vec: vec}
 }
@@ -30,5 +30,5 @@ type HistogramMetric[T any] struct {
 }
 
 func (h *HistogramMetric[T]) Observe(value float64, labels T) {
-	h.vec.With(structToLabels(labels)).Observe(value)
+	h.vec.With(mustStructLabels(labels)).Observe(value)
 }

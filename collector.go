@@ -13,33 +13,33 @@ import (
 
 type CollectorOpts struct {
 	HostLabel bool // Track request "host" label.
-	//Proto bool // Track request "proto" label (e.g. "HTTP/1.1").
-	//WS    bool // Track WebSocket upgrades via "websocket" label (e.g. "true").
+	//Proto     bool // Track request "proto" label (e.g. "HTTP/1.1", "HTTP/2 websocket").
 
 	// Skip is an optional predicate function that determines whether to skip recording metrics for a given request.
 	// If nil, all requests are recorded. If provided, requests where Skip returns true will not be recorded.
 	Skip func(r *http.Request) bool
 }
 
-type labels struct {
-	Host     string
-	Status   string
-	Endpoint string
+type requestLabels struct {
+	Host     string `label:"host"`
+	Status   string `label:"status"`
+	Endpoint string `label:"endpoint"`
+	//Proto    string `label:"proto"`
 }
 
 type inflightLabels struct {
-	Host string
+	Host string `label:"host"`
 }
 
 // Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
-	durationHistogram := HistogramWith[labels](
+	durationHistogram := HistogramWith[requestLabels](
 		"http_request_duration_seconds",
 		"Histogram of response latency (seconds) of HTTP requests.",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
 
-	totalCounter := CounterWith[labels]("http_requests_total", "Total number of HTTP requests.")
+	totalCounter := CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
 
 	inflightGauge := GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
 
@@ -71,7 +71,7 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 
 				route := cmp.Or(chi.RouteContext(ctx).RoutePattern(), "<no-match>")
 
-				labels := labels{
+				labels := requestLabels{
 					Host:     host,
 					Status:   strconv.Itoa(ww.Status()),
 					Endpoint: fmt.Sprintf("%s %s", r.Method, route),

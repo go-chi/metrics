@@ -4,7 +4,7 @@ import "github.com/prometheus/client_golang/prometheus"
 
 func Counter(name string, help string) CounterMetric {
 	vec := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: sanitizeLabel(name),
+		Name: mustBeValidMetricName(name),
 		Help: help,
 	}, []string{})
 	prometheus.MustRegister(vec)
@@ -13,9 +13,9 @@ func Counter(name string, help string) CounterMetric {
 
 func CounterWith[T any](name string, help string) CounterMetricLabeled[T] {
 	vec := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: sanitizeLabel(name),
+		Name: mustBeValidMetricName(name),
 		Help: help,
-	}, labelKeys[T]())
+	}, mustLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return CounterMetricLabeled[T]{vec: vec}
 }
@@ -37,9 +37,9 @@ type CounterMetricLabeled[T any] struct {
 }
 
 func (c *CounterMetricLabeled[T]) Inc(labels T) {
-	c.vec.With(structToLabels(labels)).Inc()
+	c.vec.With(mustStructLabels(labels)).Inc()
 }
 
 func (c *CounterMetricLabeled[T]) Add(value float64, labels T) {
-	c.vec.With(structToLabels(labels)).Add(value)
+	c.vec.With(mustStructLabels(labels)).Add(value)
 }
