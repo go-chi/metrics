@@ -13,23 +13,18 @@ import (
 	"github.com/go-chi/transport"
 )
 
-// Custom label types for typed metrics
-type HTTPLabels struct {
-	Method string
-	Status string
-}
-
-type JobLabels struct {
+type jobLabels struct {
 	Name   string `label:"name"`
 	Status string `label:"status"`
 }
 
 func main() {
-	jobCounter := metrics.CounterWith[JobLabels]("jobs_processed_total", "Number of jobs processed")
+	jobCounter := metrics.CounterWith[jobLabels]("jobs_processed_total", "Number of jobs processed")
 
 	r := chi.NewRouter()
 	r.Use(metrics.Collector(metrics.CollectorOpts{
-		HostLabel: false,
+		Host:  false,
+		Proto: true,
 		Skip: func(r *http.Request) bool {
 			if r.Method == "OPTIONS" {
 				return true
@@ -49,7 +44,7 @@ func main() {
 		time.Sleep(time.Duration(800+time.Now().Minute()) * time.Millisecond)
 
 		// Record job metrics
-		jobCounter.Inc(JobLabels{Name: "report", Status: "ok"})
+		jobCounter.Inc(jobLabels{Name: "report", Status: "ok"})
 
 		w.Write([]byte("This was a slow operation!\n"))
 	})
@@ -59,7 +54,7 @@ func main() {
 		time.Sleep(time.Duration(100+time.Now().Minute()) * time.Millisecond)
 
 		// Record job metrics
-		jobCounter.Inc(JobLabels{Name: "report", Status: "ok"})
+		jobCounter.Inc(jobLabels{Name: "report", Status: "ok"})
 
 		w.Write([]byte("This was a slow operation!\n"))
 	})
@@ -67,7 +62,7 @@ func main() {
 	r.Get("/error", func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(20 * time.Millisecond)
 
-		jobCounter.Inc(JobLabels{Name: "report", Status: "error"})
+		jobCounter.Inc(jobLabels{Name: "report", Status: "error"})
 
 		statusCodes := []int{400, 401, 403, 500, 503}
 		w.WriteHeader(statusCodes[rand.Intn(len(statusCodes))])

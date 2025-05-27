@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,23 +13,15 @@ import (
 )
 
 type CollectorOpts struct {
-	HostLabel bool // Track request "host" label.
-	//Proto     bool // Track request "proto" label (e.g. "HTTP/1.1", "HTTP/2 websocket").
+	// Host enables tracking of request "host" label.
+	Host bool
+
+	// Proto enables tracking of request "proto" label (e.g. "HTTP/1.1", "HTTP/2", "HTTP/1.1 WebSocket").
+	Proto bool
 
 	// Skip is an optional predicate function that determines whether to skip recording metrics for a given request.
 	// If nil, all requests are recorded. If provided, requests where Skip returns true will not be recorded.
 	Skip func(r *http.Request) bool
-}
-
-type requestLabels struct {
-	Host     string `label:"host"`
-	Status   string `label:"status"`
-	Endpoint string `label:"endpoint"`
-	//Proto    string `label:"proto"`
-}
-
-type inflightLabels struct {
-	Host string `label:"host"`
 }
 
 // Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
@@ -53,13 +46,19 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 			ctx := r.Context()
 
 			var host string
-			if opts.HostLabel {
+			if opts.Host {
 				host = r.Host
+			}
+
+			var proto string
+			if opts.Proto {
+				proto = getProtocol(r)
 			}
 
 			start := time.Now()
 			inflightLabels := inflightLabels{
-				Host: host,
+				Host:  host,
+				Proto: proto,
 			}
 			inflightGauge.Inc(inflightLabels)
 
@@ -75,6 +74,7 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 					Host:     host,
 					Status:   strconv.Itoa(ww.Status()),
 					Endpoint: fmt.Sprintf("%s %s", r.Method, route),
+					Proto:    proto,
 				}
 
 				totalCounter.Inc(labels)
@@ -84,4 +84,33 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 			next.ServeHTTP(ww, r)
 		})
 	}
+}
+
+// getProtocol determines the protocol string for the request
+func getProtocol(r *http.Request) string {
+	var proto string
+
+	switch r.ProtoMajor {
+	case 2:
+		proto = "HTTP/2"
+	case 3:
+		proto = "HTTP/3"
+	default:
+		proto = fmt.Sprintf("HTTP/%d.%d", r.ProtoMajor, r.ProtoMinor)
+	}
+
+	// Check for WebSocket upgrade
+	if isWebSocketUpgrade(r) {
+		proto += " WebSocket"
+	}
+
+	return proto
+}
+
+// isWebSocketUpgrade checks if the request is a WebSocket upgrade request
+func isWebSocketUpgrade(r *http.Request) bool {
+	connection := strings.ToLower(r.Header.Get("Connection"))
+	upgrade := strings.ToLower(r.Header.Get("Upgrade"))
+
+	return strings.Contains(connection, "upgrade") && upgrade == "websocket"
 }

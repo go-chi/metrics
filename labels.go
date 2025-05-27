@@ -15,6 +15,18 @@ var (
 	labelValidator = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
 )
 
+type requestLabels struct {
+	Host     string `label:"host"`
+	Status   string `label:"status"`
+	Endpoint string `label:"endpoint"`
+	Proto    string `label:"proto"`
+}
+
+type inflightLabels struct {
+	Host  string `label:"host"`
+	Proto string `label:"proto"`
+}
+
 // mustBeValidMetricName validates a metric name and panics if it doesn't match the required Prometheus format.
 func mustBeValidMetricName(s string) string {
 	if !labelValidator.MatchString(s) {
