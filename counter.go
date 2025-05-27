@@ -2,6 +2,7 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// Counter creates a counter metric
 func Counter(name string, help string) CounterMetric {
 	vec := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: mustBeValidMetricName(name),
@@ -11,6 +12,7 @@ func Counter(name string, help string) CounterMetric {
 	return CounterMetric{vec: vec}
 }
 
+// CounterWith creates a counter metric with typed labels
 func CounterWith[T any](name string, help string) CounterMetricLabeled[T] {
 	vec := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: mustBeValidMetricName(name),

@@ -2,33 +2,41 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
-// // Histogram creates a histogram metric without labels
-// func Histogram(name, help string, buckets []float64) HistogramMetric[NoLabels] {
-// 	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-// 		Name:    sanitizeLabel(name),
-// 		Help:    help,
-// 		Buckets: buckets,
-// 	}, []string{})
-// 	prometheus.MustRegister(vec)
-// 	return HistogramMetric[NoLabels]{vec: vec}
-// }
+// Histogram creates a histogram metric
+func Histogram(name, help string, buckets []float64) HistogramMetric {
+	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    mustBeValidMetricName(name),
+		Help:    help,
+		Buckets: buckets,
+	}, []string{})
+	prometheus.MustRegister(vec)
+	return HistogramMetric{vec: vec}
+}
 
 // HistogramWith creates a histogram metric with typed labels
-func HistogramWith[T any](name, help string, buckets []float64) HistogramMetric[T] {
+func HistogramWith[T any](name, help string, buckets []float64) HistogramMetricLabeled[T] {
 	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    mustBeValidMetricName(name),
 		Help:    help,
 		Buckets: buckets,
 	}, mustLabelKeys[T]())
 	prometheus.MustRegister(vec)
-	return HistogramMetric[T]{vec: vec}
+	return HistogramMetricLabeled[T]{vec: vec}
 }
 
-// HistogramMetric represents a histogram metric with typed labels
-type HistogramMetric[T any] struct {
+type HistogramMetric struct {
 	vec *prometheus.HistogramVec
 }
 
-func (h *HistogramMetric[T]) Observe(value float64, labels T) {
+func (h *HistogramMetric) Observe(value float64) {
+	h.vec.With(prometheus.Labels{}).Observe(value)
+}
+
+// HistogramMetric represents a histogram metric with typed labels
+type HistogramMetricLabeled[T any] struct {
+	vec *prometheus.HistogramVec
+}
+
+func (h *HistogramMetricLabeled[T]) Observe(value float64, labels T) {
 	h.vec.With(mustStructLabels(labels)).Observe(value)
 }

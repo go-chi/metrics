@@ -2,6 +2,7 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// Gauge creates a gauge metric
 func Gauge(name, help string) GaugeMetric {
 	vec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: mustBeValidMetricName(name),
@@ -11,6 +12,7 @@ func Gauge(name, help string) GaugeMetric {
 	return GaugeMetric{vec: vec}
 }
 
+// GaugeWith creates a gauge metric with typed labels
 func GaugeWith[T any](name, help string) GaugeMetricLabeled[T] {
 	vec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: mustBeValidMetricName(name),
