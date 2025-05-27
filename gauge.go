@@ -17,7 +17,7 @@ func GaugeWith[T any](name, help string) GaugeMetricLabeled[T] {
 	vec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: mustBeValidMetricName(name),
 		Help: help,
-	}, mustLabelKeys[T]())
+	}, mustStructLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return GaugeMetricLabeled[T]{vec: vec}
 }

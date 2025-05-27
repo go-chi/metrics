@@ -35,9 +35,9 @@ func mustBeValidMetricName(s string) string {
 	return s
 }
 
-// mustLabelKeys returns the list of labels defined as struct tags, e.g. `label:"some_name"`,
-// and panics if any of the labels are empty or invalid.
-func mustLabelKeys[T any]() []string {
+// mustStructLabelKeys returns the list of labels defined as struct tags,
+// e.g. `label:"some_name"`, and panics if any of the labels are empty or invalid.
+func mustStructLabelKeys[T any]() []string {
 	var keys []string
 	var zero T
 	v := reflect.ValueOf(zero)
@@ -52,13 +52,15 @@ func mustLabelKeys[T any]() []string {
 		field := t.Field(i)
 		labelName := field.Tag.Get("label")
 		if labelName == "" {
-			panic(fmt.Sprintf("missing `label` struct tag in %v type %v { %s `label:\"\"` }", t.PkgPath(), t.Name(), field.Name))
+			panic(fmt.Sprintf("missing `label` struct tag in %v:\ntype %s %s {\n\t%s %s `label:\"add_label_here\"`\n}", t.PkgPath(), t.Name(), t.Kind(), field.Name, field.Type))
 		}
 		if !labelValidator.MatchString(labelName) {
-			panic(fmt.Sprintf("invalid `label` name in %v type %v { %s `label:\"%s\"` }: must match [a-z_][a-z0-9_]*", t.PkgPath(), t.Name(), field.Name, labelName))
+			panic(fmt.Sprintf("invalid `label` name in %v:\ntype %s %s {\n\t%s %s `label:\"%s\"` // <-- must match [a-z_][a-z0-9_]*\n}", t.PkgPath(), t.Name(), t.Kind(), field.Name, field.Type, labelName))
 		}
 		keys = append(keys, labelName)
 	}
+	labelCache.Store(t, keys)
+
 	return keys
 }
 
@@ -77,19 +79,7 @@ func mustStructLabels[T any](labelStruct T) prometheus.Labels {
 	if cached, ok := labelCache.Load(t); ok {
 		keys = cached.([]string)
 	} else {
-		keys = make([]string, v.NumField())
-		for i := 0; i < v.NumField(); i++ {
-			field := t.Field(i)
-			labelName := field.Tag.Get("label")
-			if labelName == "" {
-				panic("missing label struct tag for field: " + field.Name)
-			}
-			if !labelValidator.MatchString(labelName) {
-				panic("invalid label name: " + labelName + " (must match [a-z_][a-z0-9_]*)")
-			}
-			keys[i] = labelName
-		}
-		labelCache.Store(t, keys)
+		panic("unreachable, mustStructLabelKeys should have cached the keys")
 	}
 
 	for i, key := range keys {

@@ -19,7 +19,7 @@ func HistogramWith[T any](name, help string, buckets []float64) HistogramMetricL
 		Name:    mustBeValidMetricName(name),
 		Help:    help,
 		Buckets: buckets,
-	}, mustLabelKeys[T]())
+	}, mustStructLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return HistogramMetricLabeled[T]{vec: vec}
 }

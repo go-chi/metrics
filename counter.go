@@ -17,7 +17,7 @@ func CounterWith[T any](name string, help string) CounterMetricLabeled[T] {
 	vec := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: mustBeValidMetricName(name),
 		Help: help,
-	}, mustLabelKeys[T]())
+	}, mustStructLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return CounterMetricLabeled[T]{vec: vec}
 }
