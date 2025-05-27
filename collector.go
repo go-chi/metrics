@@ -12,6 +12,18 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+var (
+	requestDuration = HistogramWith[requestLabels](
+		"http_request_duration_seconds",
+		"Histogram of response latency (seconds) of HTTP requests.",
+		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
+	)
+
+	requestsTotal = CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
+
+	requestsInflight = GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
+)
+
 type CollectorOpts struct {
 	// Host enables tracking of request "host" label.
 	Host bool
@@ -26,15 +38,6 @@ type CollectorOpts struct {
 
 // Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
-	durationHistogram := HistogramWith[requestLabels](
-		"http_request_duration_seconds",
-		"Histogram of response latency (seconds) of HTTP requests.",
-		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
-	)
-
-	totalCounter := CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
-
-	inflightGauge := GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,13 +63,13 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				Host:  host,
 				Proto: proto,
 			}
-			inflightGauge.Inc(inflightLabels)
+			requestsInflight.Inc(inflightLabels)
 
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
 			defer func() {
 				duration := time.Since(start).Seconds()
-				inflightGauge.Dec(inflightLabels)
+				requestsInflight.Dec(inflightLabels)
 
 				route := cmp.Or(chi.RouteContext(ctx).RoutePattern(), "<no-match>")
 
@@ -77,8 +80,8 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 					Proto:    proto,
 				}
 
-				totalCounter.Inc(labels)
-				durationHistogram.Observe(duration, labels)
+				requestsTotal.Inc(labels)
+				requestDuration.Observe(duration, labels)
 			}()
 
 			next.ServeHTTP(ww, r)
