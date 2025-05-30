@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	clientRequestDuration = HistogramWith[requestLabels](
+	clientRequestDuration = HistogramWith[outgoingRequestLabels](
 		"http_client_request_duration_seconds",
 		"Duration of HTTP client requests in seconds",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
 
-	clientRequestsTotal = CounterWith[requestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
+	clientRequestsTotal = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
 
 	clientRequestsInflight = GaugeWith[inflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
 )

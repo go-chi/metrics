@@ -22,6 +22,12 @@ type requestLabels struct {
 	Proto    string `label:"proto"`
 }
 
+type outgoingRequestLabels struct {
+	Host   string `label:"host"`
+	Status string `label:"status"`
+	Proto  string `label:"proto"`
+}
+
 type inflightLabels struct {
 	Host  string `label:"host"`
 	Proto string `label:"proto"`

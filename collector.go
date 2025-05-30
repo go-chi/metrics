@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"cmp"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -28,8 +27,19 @@ type CollectorOpts struct {
 	// Host enables tracking of request "host" label.
 	Host bool
 
-	// Proto enables tracking of request "proto" label (e.g. "HTTP/1.1", "HTTP/2", "HTTP/1.1 WebSocket").
+	// Proto enables tracking of request "proto" label, e.g. "HTTP/2", "HTTP/1.1 WebSocket".
 	Proto bool
+
+	// FullPath enables tracking of full request path in "endpoint" label.
+	//
+	// If false, the "endpoint" label will be set to request method and chi route
+	// pattern matching the current path, e.g. "POST /rpc/*" or "POST <no-match>".
+	//
+	// If true, the "endpoint" label will be set to request method and full path,
+	// e.g. "POST /rpc/Service/MethodName" or "POST <no-match>".
+	// WARNING: High cardinality risk - only enable for limited, known paths.
+	// Do not enable for paths with user-input parameters, such as /users/{id}.
+	FullPath bool
 
 	// Skip is an optional predicate function that determines whether to skip recording metrics for a given request.
 	// If nil, all requests are recorded. If provided, requests where Skip returns true will not be recorded.
@@ -38,7 +48,6 @@ type CollectorOpts struct {
 
 // Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if opts.Skip != nil && opts.Skip(r) {
@@ -74,7 +83,15 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				duration := time.Since(start).Seconds()
 				requestsInflight.Dec(inflightLabels)
 
-				route := cmp.Or(chi.RouteContext(ctx).RoutePattern(), "<no-match>")
+				route := "<no-match>"
+				rctx := chi.RouteContext(ctx)
+				if rctx != nil && rctx.RoutePattern() != "" {
+					if opts.FullPath {
+						route = r.URL.Path
+					} else {
+						route = rctx.RoutePattern()
+					}
+				}
 
 				labels := requestLabels{
 					Host:     host,
