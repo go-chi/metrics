@@ -48,7 +48,7 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 				clientRequestsInflight.Dec(inflightLabels)
 
 				// Create labels based on enabled options
-				labels := requestLabels{}
+				labels := outgoingRequestLabels{}
 
 				if resp != nil {
 					labels.Status = fmt.Sprintf("%d", resp.StatusCode)
