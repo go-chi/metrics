@@ -65,7 +65,10 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 			}
 			requestsInflight.Inc(inflightLabels)
 
-			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			ww, ok := w.(middleware.WrapResponseWriter)
+			if !ok {
+				ww = middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			}
 
 			defer func() {
 				duration := time.Since(start).Seconds()
