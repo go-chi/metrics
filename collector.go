@@ -53,7 +53,7 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 
 			var proto string
 			if opts.Proto {
-				proto = getProtocol(r)
+				proto = getProto(r)
 			}
 
 			start := time.Now()
@@ -94,25 +94,13 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 	}
 }
 
-// getProtocol determines the protocol string for the request
-func getProtocol(r *http.Request) string {
-	var proto string
-
-	switch r.ProtoMajor {
-	case 2:
-		proto = "HTTP/2"
-	case 3:
-		proto = "HTTP/3"
-	default:
-		proto = fmt.Sprintf("HTTP/%d.%d", r.ProtoMajor, r.ProtoMinor)
-	}
-
-	// Check for WebSocket upgrade
+// getProto determines the protocol string for the request
+func getProto(r *http.Request) string {
 	if isWebSocketUpgrade(r) {
-		proto += " WebSocket"
+		return r.Proto + " WebSocket"
 	}
 
-	return proto
+	return r.Proto
 }
 
 // isWebSocketUpgrade checks if the request is a WebSocket upgrade request
