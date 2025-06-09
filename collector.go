@@ -90,9 +90,14 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 					route = rctx.RoutePattern()
 				}
 
+				status := strconv.Itoa(ww.Status())
+				if status == "0" {
+					status = "disconnected"
+				}
+
 				labels := requestLabels{
 					Host:     host,
-					Status:   strconv.Itoa(ww.Status()),
+					Status:   status,
 					Endpoint: fmt.Sprintf("%s %s", r.Method, route),
 					Proto:    proto,
 				}
