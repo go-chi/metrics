@@ -19,61 +19,60 @@ type jobLabels struct {
 }
 
 func main() {
-	jobCounter := metrics.CounterWith[jobLabels]("jobs_processed_total", "Number of jobs processed")
-
 	r := chi.NewRouter()
+	r.Use(middleware.Heartbeat("/ping"))
+
 	r.Use(metrics.Collector(metrics.CollectorOpts{
 		Host:  false,
 		Proto: true,
 		Skip: func(r *http.Request) bool {
-			if r.Method == "OPTIONS" {
-				return true
-			}
-			return false
+			return r.Method == "OPTIONS"
 		},
 	}))
-
-	r.Use(middleware.Heartbeat("/health"))
 
 	r.Use(httprate.LimitByIP(100, time.Second))
 
 	r.Handle("/metrics", metrics.Handler())
 
-	r.Get("/slow", func(w http.ResponseWriter, r *http.Request) {
-		// Simulate slow operation
-		time.Sleep(time.Duration(800+time.Now().Minute()) * time.Millisecond)
-
-		// Record job metrics
-		jobCounter.Inc(jobLabels{Name: "report", Status: "ok"})
-
-		w.Write([]byte("This was a slow operation!\n"))
-	})
-
-	r.Get("/fast", func(w http.ResponseWriter, r *http.Request) {
-		// Simulate slow operation
-		time.Sleep(time.Duration(100+time.Now().Minute()) * time.Millisecond)
-
-		// Record job metrics
-		jobCounter.Inc(jobLabels{Name: "report", Status: "ok"})
-
-		w.Write([]byte("This was a slow operation!\n"))
-	})
-
-	r.Get("/error", func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(20 * time.Millisecond)
-
-		jobCounter.Inc(jobLabels{Name: "report", Status: "error"})
-
-		statusCodes := []int{400, 401, 403, 500, 503}
-		w.WriteHeader(statusCodes[rand.Intn(len(statusCodes))])
-		w.Write([]byte("Bad request error!\n"))
-	})
+	r.Get("/fast", handleFast)
+	r.Get("/slow", handleSlow)
+	r.Get("/error", handleError)
 
 	go simulateTraffic()
 
 	log.Println("Server starting on :8022")
 	if err := http.ListenAndServe(":8022", r); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func handleFast(w http.ResponseWriter, r *http.Request) {
+	doWork(100 * time.Millisecond)
+
+	w.Write([]byte("This was a fast operation!\n"))
+}
+
+func handleSlow(w http.ResponseWriter, r *http.Request) {
+	doWork(5 * time.Second)
+
+	w.Write([]byte("This was a slow operation!\n"))
+}
+
+func handleError(w http.ResponseWriter, r *http.Request) {
+	statusCodes := []int{400, 401, 403, 500, 503}
+	w.WriteHeader(statusCodes[rand.Intn(len(statusCodes))])
+	w.Write([]byte("Bad request error!\n"))
+}
+
+var jobCounter = metrics.CounterWith[jobLabels]("jobs_processed_total", "Number of jobs processed")
+
+func doWork(dur time.Duration) {
+	time.Sleep(dur)
+
+	if rand.Intn(100) > 90 {
+		jobCounter.Inc(jobLabels{Name: "job", Status: "success"})
+	} else {
+		jobCounter.Inc(jobLabels{Name: "job", Status: "error"})
 	}
 }
 

@@ -108,7 +108,6 @@ func getHost(r *http.Request, collect bool) string {
 	return r.Host
 }
 
-// getProto determines the protocol string for the incoming HTTP request
 func getProto(r *http.Request, collect bool) string {
 	if !collect {
 		return ""
@@ -119,7 +118,6 @@ func getProto(r *http.Request, collect bool) string {
 	return r.Proto
 }
 
-// isWebSocketUpgrade checks if the request is a WebSocket upgrade request
 func isWebSocketUpgrade(r *http.Request) bool {
 	connection := strings.ToLower(r.Header.Get("Connection"))
 	upgrade := strings.ToLower(r.Header.Get("Upgrade"))
