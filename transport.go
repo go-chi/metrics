@@ -7,15 +7,13 @@ import (
 )
 
 var (
-	clientRequestDuration = HistogramWith[outgoingRequestLabels](
+	clientRequestsCounter  = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
+	clientInflightGauge    = GaugeWith[outgoingInflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
+	clientRequestHistogram = HistogramWith[outgoingRequestLabels](
 		"http_client_request_duration_seconds",
 		"Duration of HTTP client requests in seconds",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
-
-	clientRequestsTotal = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
-
-	clientRequestsInflight = GaugeWith[outgoingInflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
 )
 
 type TransportOpts struct {
@@ -49,12 +47,12 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 			}
 
 			// Increment inflight counter
-			clientRequestsInflight.Inc(inflightLabels)
+			clientInflightGauge.Inc(inflightLabels)
 
 			// Defer recording metrics after the request is complete
 			defer func() {
 				// Decrement inflight counter
-				clientRequestsInflight.Dec(inflightLabels)
+				clientInflightGauge.Dec(inflightLabels)
 
 				// Create labels based on enabled options
 				labels := outgoingRequestLabels{}
@@ -71,8 +69,8 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 
 				// Record metrics
 				duration := time.Since(startTime).Seconds()
-				clientRequestDuration.Observe(duration, labels)
-				clientRequestsTotal.Inc(labels)
+				clientRequestHistogram.Observe(duration, labels)
+				clientRequestsCounter.Inc(labels)
 			}()
 
 			if next != nil {

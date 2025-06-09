@@ -12,15 +12,13 @@ import (
 )
 
 var (
-	requestDuration = HistogramWith[requestLabels](
+	requestsCounter  = CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
+	inflightGauge    = GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
+	requestHistogram = HistogramWith[requestLabels](
 		"http_request_duration_seconds",
 		"Histogram of response latency (seconds) of HTTP requests.",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
-
-	requestsTotal = CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
-
-	requestsInflight = GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
 )
 
 type CollectorOpts struct {
@@ -56,24 +54,13 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				return
 			}
 
-			ctx := r.Context()
-
-			var host string
-			if opts.Host {
-				host = r.Host
-			}
-
-			var proto string
-			if opts.Proto {
-				proto = getProto(r)
-			}
-
 			start := time.Now()
+
 			inflightLabels := inflightLabels{
-				Host:  host,
-				Proto: proto,
+				Host:  getHost(r, opts.Host),
+				Proto: getProto(r, opts.Proto),
 			}
-			requestsInflight.Inc(inflightLabels)
+			inflightGauge.Inc(inflightLabels)
 
 			ww, ok := w.(middleware.WrapResponseWriter)
 			if !ok {
@@ -82,10 +69,10 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 
 			defer func() {
 				duration := time.Since(start).Seconds()
-				requestsInflight.Dec(inflightLabels)
+				inflightGauge.Dec(inflightLabels)
 
 				var endpoint string
-				if rctx := chi.RouteContext(ctx); rctx != nil {
+				if rctx := chi.RouteContext(r.Context()); rctx != nil {
 					if pattern := rctx.RoutePattern(); pattern != "" {
 						endpoint = fmt.Sprintf("%s %s", r.Method, pattern)
 					} else {
@@ -99,14 +86,14 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				}
 
 				labels := requestLabels{
-					Host:     host,
+					Host:     inflightLabels.Host,
 					Status:   status,
 					Endpoint: endpoint,
-					Proto:    proto,
+					Proto:    inflightLabels.Proto,
 				}
 
-				requestsTotal.Inc(labels)
-				requestDuration.Observe(duration, labels)
+				requestsCounter.Inc(labels)
+				requestHistogram.Observe(duration, labels)
 			}()
 
 			next.ServeHTTP(ww, r)
@@ -114,12 +101,21 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 	}
 }
 
-// getProto determines the protocol string for the request
-func getProto(r *http.Request) string {
+func getHost(r *http.Request, collect bool) string {
+	if !collect {
+		return ""
+	}
+	return r.Host
+}
+
+// getProto determines the protocol string for the incoming HTTP request
+func getProto(r *http.Request, collect bool) string {
+	if !collect {
+		return ""
+	}
 	if isWebSocketUpgrade(r) {
 		return r.Proto + " WebSocket"
 	}
-
 	return r.Proto
 }
 
