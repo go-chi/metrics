@@ -84,10 +84,13 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				duration := time.Since(start).Seconds()
 				requestsInflight.Dec(inflightLabels)
 
-				route := "<no-match>"
-				rctx := chi.RouteContext(ctx)
-				if rctx != nil && rctx.RoutePattern() != "" {
-					route = rctx.RoutePattern()
+				var endpoint string
+				if rctx := chi.RouteContext(ctx); rctx != nil {
+					if pattern := rctx.RoutePattern(); pattern != "" {
+						endpoint = fmt.Sprintf("%s %s", r.Method, pattern)
+					} else {
+						endpoint = "<no-match>"
+					}
 				}
 
 				status := strconv.Itoa(ww.Status())
@@ -98,7 +101,7 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				labels := requestLabels{
 					Host:     host,
 					Status:   status,
-					Endpoint: fmt.Sprintf("%s %s", r.Method, route),
+					Endpoint: endpoint,
 					Proto:    proto,
 				}
 
