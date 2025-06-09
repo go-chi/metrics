@@ -35,6 +35,18 @@ type CollectorOpts struct {
 	Skip func(r *http.Request) bool
 }
 
+type requestLabels struct {
+	Host     string `label:"host"`
+	Status   string `label:"status"`
+	Endpoint string `label:"endpoint"`
+	Proto    string `label:"proto"`
+}
+
+type inflightLabels struct {
+	Host  string `label:"host"`
+	Proto string `label:"proto"`
+}
+
 // Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

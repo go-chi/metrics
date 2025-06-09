@@ -15,7 +15,7 @@ var (
 
 	clientRequestsTotal = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
 
-	clientRequestsInflight = GaugeWith[inflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
+	clientRequestsInflight = GaugeWith[outgoingInflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
 )
 
 type TransportOpts struct {
@@ -23,6 +23,15 @@ type TransportOpts struct {
 	// WARNING: High cardinality risk - only enable for limited, known hosts.
 	// Do not enable for user-input URLs, crawlers, or dynamically generated hosts.
 	Host bool
+}
+
+type outgoingRequestLabels struct {
+	Host   string `label:"host"`
+	Status string `label:"status"`
+}
+
+type outgoingInflightLabels struct {
+	Host string `label:"host"`
 }
 
 // Transport returns a new http.RoundTripper to be used in http.Client to track metrics for outgoing HTTP requests.
@@ -34,7 +43,7 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 			startTime := time.Now().UTC()
 
 			// Create labels for inflight tracking (before request starts)
-			inflightLabels := inflightLabels{}
+			inflightLabels := outgoingInflightLabels{}
 			if req.URL.Host != "" && opts.Host {
 				inflightLabels.Host = req.URL.Host
 			}
