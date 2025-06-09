@@ -10,18 +10,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-chi/metrics"
-	"github.com/go-chi/transport"
 )
-
-type jobLabels struct {
-	Name   string `label:"name"`
-	Status string `label:"status"`
-}
 
 func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Heartbeat("/ping"))
 
+	// Collect metrics for incoming HTTP requests automatically.
 	r.Use(metrics.Collector(metrics.CollectorOpts{
 		Host:  false,
 		Proto: true,
@@ -33,6 +28,14 @@ func main() {
 	r.Use(httprate.LimitByIP(100, time.Second))
 
 	r.Handle("/metrics", metrics.Handler())
+
+	// Collect metrics for outgoing HTTP requests automatically.
+	transport := metrics.Transport(metrics.TransportOpts{
+		Host: true,
+	})
+
+	// NOTE: Check out https://github.com/go-chi/transport for better transport chaining.
+	http.DefaultClient.Transport = transport(http.DefaultTransport)
 
 	r.Get("/fast", handleFast)
 	r.Get("/slow", handleSlow)
@@ -64,6 +67,13 @@ func handleError(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Bad request error!\n"))
 }
 
+// Strongly typed metric labels help maintain low data cardinality
+// by enforcing consistent label names across the codebase.
+type jobLabels struct {
+	Name   string `label:"name"`
+	Status string `label:"status"`
+}
+
 var jobCounter = metrics.CounterWith[jobLabels]("jobs_processed_total", "Number of jobs processed")
 
 func doWork(dur time.Duration) {
@@ -77,18 +87,9 @@ func doWork(dur time.Duration) {
 }
 
 func simulateTraffic() {
-	client := &http.Client{
-		Transport: transport.Chain(http.DefaultTransport,
-			metrics.Transport(metrics.TransportOpts{
-				Host: true,
-			}),
-		),
-		Timeout: 10 * time.Second,
-	}
-
 	go func() {
 		for {
-			resp, err := client.Get("http://example.com")
+			resp, err := http.DefaultClient.Get("http://example.com")
 			if err == nil {
 				resp.Body.Close()
 			}
@@ -98,7 +99,7 @@ func simulateTraffic() {
 
 	go func() {
 		for {
-			resp, err := client.Get("http://cant-resolve-this-thing.com")
+			resp, err := http.DefaultClient.Get("http://cant-resolve-this-thing.com")
 			if err == nil {
 				resp.Body.Close()
 			}
@@ -108,7 +109,7 @@ func simulateTraffic() {
 
 	go func() {
 		for {
-			resp, err := client.Get("http://localhost:8022/health")
+			resp, err := http.DefaultClient.Get("http://localhost:8022/health")
 			if err == nil {
 				resp.Body.Close()
 			}
@@ -128,7 +129,7 @@ func simulateTraffic() {
 			endpoint := endpoints[rand.Intn(len(endpoints))]
 
 			// Make the request
-			resp, err := client.Get(endpoint)
+			resp, err := http.DefaultClient.Get(endpoint)
 			if err != nil {
 				log.Printf("Request to %s failed: %v", endpoint, err)
 			} else {
@@ -136,7 +137,7 @@ func simulateTraffic() {
 				resp.Body.Close()
 			}
 
-			// Wait a random amount of time between 1ms..100ms
+			// Wait random amount of time between 1ms..100ms
 			sleepTime := time.Duration(rand.Intn(100)+1) * time.Millisecond
 			time.Sleep(sleepTime)
 		}

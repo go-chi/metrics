@@ -8,7 +8,6 @@ require (
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/httprate v0.15.0
 	github.com/go-chi/metrics v0.0.0-00010101000000-000000000000
-	github.com/go-chi/transport v0.5.0
 )
 
 require (

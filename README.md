@@ -29,17 +29,26 @@ import (
 
 func main() {
 	r := chi.NewRouter()
+
+	// Collect metrics for incoming HTTP requests automatically.
 	r.Use(metrics.Collector(metrics.CollectorOpts{
 		Host:  false,
 		Proto: true,
 		Skip: func(r *http.Request) bool {
-            return r.Method != "OPTIONS"
-        },
+			return r.Method != "OPTIONS"
+		},
 	}))
 
 	r.Handle("/metrics", metrics.Handler())
-
 	r.Post("/do-work", doWork)
+
+	// Collect metrics for outgoing HTTP requests automatically.
+	transport := metrics.Transport(metrics.TransportOpts{
+		Host: true,
+	})
+	http.DefaultClient.Transport = transport(http.DefaultTransport)
+
+	go simulateTraffic()
 
 	log.Println("Server starting on :8022")
 	if err := http.ListenAndServe(":8022", r); err != nil {
@@ -47,6 +56,8 @@ func main() {
 	}
 }
 
+// Strongly typed metric labels help maintain low data cardinality
+// by enforcing consistent label names across the codebase.
 type jobLabels struct {
 	Name   string `label:"name"`
 	Status string `label:"status"`
@@ -58,13 +69,20 @@ func doWork(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(time.Second) // simulate work
 
 	if rand.Intn(100) > 90 { // simulate error
-        jobCounter.Inc(jobLabels{Name: "job", Status: "error"})
-        w.Write([]byte("Job failed.\n"))
-        return
+		jobCounter.Inc(jobLabels{Name: "job", Status: "error"})
+		w.Write([]byte("Job failed.\n"))
+		return
 	}
 
-    jobCounter.Inc(jobLabels{Name: "job", Status: "success"})
-    w.Write([]byte("Job finished successfully.\n"))
+	jobCounter.Inc(jobLabels{Name: "job", Status: "success"})
+	w.Write([]byte("Job finished successfully.\n"))
+}
+
+func simulateTraffic() {
+	for {
+		_, _ = client.Get("http://example.com")
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 ```
 
