@@ -1,13 +1,18 @@
 module example
 
+go 1.24.2
+
 replace github.com/go-chi/metrics => ../
 
-go 1.24.2
+// replace github.com/go-chi/httplog/v3 => ../../httplog
+// replace github.com/golang-cz/devslog => ../../../golang-cz/devslog
 
 require (
 	github.com/go-chi/chi/v5 v5.2.1
+	github.com/go-chi/httplog/v3 v3.2.0
 	github.com/go-chi/httprate v0.15.0
 	github.com/go-chi/metrics v0.0.0-00010101000000-000000000000
+	github.com/golang-cz/devslog v0.0.15
 )
 
 require (
