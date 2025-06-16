@@ -18,6 +18,7 @@ var (
 	)
 )
 
+// TransportOpts configures the HTTP client metrics transport.
 type TransportOpts struct {
 	// Host adds the request host as a "host" label to http_client_requests_total metric.
 	// WARNING: High cardinality risk - only enable for limited, known hosts. Do not enable
@@ -25,24 +26,22 @@ type TransportOpts struct {
 	Host bool
 }
 
-// Labels for the counter of total outgoing HTTP requests.
+// outgoingRequestLabels defines labels for the counter of total outgoing HTTP requests.
 type outgoingRequestLabels struct {
 	Host   string `label:"host"`
 	Status string `label:"status"`
 }
 
-// Labels for the gauge of in-flight outgoing HTTP requests.
+// outgoingInflightLabels defines labels for the gauge of in-flight outgoing HTTP requests.
 type outgoingInflightLabels struct {
 	Host string `label:"host"`
 }
 
-// Transport returns a new http.RoundTripper that can be used in http.Client
-// to track metrics for outgoing HTTP requests.
-//
-// The metrics are:
-// - http_client_requests_total: Total number of outgoing HTTP requests.
-// - http_client_requests_inflight: Number of outgoing HTTP requests currently in flight.
-// - http_client_request_duration_seconds: Response latency in seconds for completed outgoing HTTP requests.
+// Transport returns a new http.RoundTripper that automatically tracks Prometheus metrics
+// for outgoing HTTP requests:
+// - http_client_requests_total: Total number of outgoing HTTP requests
+// - http_client_requests_inflight: Number of outgoing HTTP requests currently in flight
+// - http_client_request_duration_seconds: Response latency in seconds for completed requests
 func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {

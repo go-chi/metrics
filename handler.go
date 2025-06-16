@@ -7,11 +7,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Handler returns an HTTP handler that serves OpenMetrics (Prometheus metrics)
-// from the default Prometheus registry in the standard exposition format.
+// Handler returns an HTTP handler that serves Prometheus metrics from the default registry
+// in the OpenMetrics exposition format.
 //
-// This handler should typically be mounted at the "/metrics" path and protected
-// from public access, e.g. via github.com/go-chi/chi/middleware.BasicAuth middleware.
+// This handler should typically be mounted at "/metrics" and protected from public access,
+// e.g. via middleware.BasicAuth or exposed only on a private port.
 func Handler() http.Handler {
 	return promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
 }

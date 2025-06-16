@@ -23,11 +23,12 @@ var (
 	)
 )
 
+// CollectorOpts configures the HTTP request metrics collector.
 type CollectorOpts struct {
 	// Host enables tracking of request "host" label.
 	Host bool
 
-	// Proto enables tracking of request "proto" label, e.g. "HTTP/2", "HTTP/1.1 WebSocket".
+	// Proto enables tracking of request "proto" label (e.g. "HTTP/2", "HTTP/1.1 WebSocket").
 	Proto bool
 
 	// Skip is an optional predicate function that determines whether to skip recording metrics for a given request.
@@ -35,7 +36,7 @@ type CollectorOpts struct {
 	Skip func(r *http.Request) bool
 }
 
-// Labels for the counter of total incoming HTTP requests.
+// requestLabels defines labels for the counter of total incoming HTTP requests.
 type requestLabels struct {
 	Host          string `label:"host"`
 	Status        string `label:"status"`
@@ -44,25 +45,23 @@ type requestLabels struct {
 	ClientAborted bool   `label:"client_aborted"`
 }
 
-// Labels for the histogram of completed incoming HTTP requests (e.g., when client didn't abort request).
+// histogramLabels defines labels for the histogram of completed incoming HTTP requests.
 type histogramLabels struct {
 	Status   string `label:"status"`
 	Endpoint string `label:"endpoint"`
 }
 
-// Labels for the gauge of in-flight incoming HTTP requests.
+// inflightLabels defines labels for the gauge of in-flight incoming HTTP requests.
 type inflightLabels struct {
 	Host  string `label:"host"`
 	Proto string `label:"proto"`
 }
 
 // Collector returns HTTP middleware that automatically tracks Prometheus metrics
-// for incoming HTTP requests.
-//
-// The metrics are:
-// - http_requests_total: Total number of incoming HTTP requests.
-// - http_requests_inflight: Number of incoming HTTP requests currently in flight.
-// - http_request_duration_seconds: Response latency in seconds for completed incoming HTTP requests.
+// for incoming HTTP requests:
+// - http_requests_total: Total number of incoming HTTP requests
+// - http_requests_inflight: Number of incoming HTTP requests currently in flight
+// - http_request_duration_seconds: Response latency in seconds for completed requests
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
