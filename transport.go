@@ -9,34 +9,40 @@ import (
 )
 
 var (
-	clientRequestsCounter  = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of HTTP client requests.")
-	clientInflightGauge    = GaugeWith[outgoingInflightLabels]("http_client_requests_inflight", "Number of HTTP client requests currently in flight.")
+	clientRequestsCounter  = CounterWith[outgoingRequestLabels]("http_client_requests_total", "Total number of outgoing HTTP requests.")
+	clientInflightGauge    = GaugeWith[outgoingInflightLabels]("http_client_requests_inflight", "Number of outgoing HTTP requests currently in flight.")
 	clientRequestHistogram = HistogramWith[outgoingRequestLabels](
 		"http_client_request_duration_seconds",
-		"Duration of HTTP client requests in seconds",
+		"Response latency in seconds for completed outgoing HTTP requests.",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
 )
 
 type TransportOpts struct {
-	// Host adds the request host as a "host" label to metrics.
-	// WARNING: High cardinality risk - only enable for limited, known hosts.
-	// Do not enable for user-input URLs, crawlers, or dynamically generated hosts.
+	// Host adds the request host as a "host" label to http_client_requests_total metric.
+	// WARNING: High cardinality risk - only enable for limited, known hosts. Do not enable
+	// for user-input URLs, crawlers, or dynamically generated hosts.
 	Host bool
 }
 
+// Labels for the counter of total outgoing HTTP requests.
 type outgoingRequestLabels struct {
 	Host   string `label:"host"`
 	Status string `label:"status"`
 }
 
+// Labels for the gauge of in-flight outgoing HTTP requests.
 type outgoingInflightLabels struct {
 	Host string `label:"host"`
 }
 
-// Transport returns a new http.RoundTripper to be used in http.Client to track metrics for outgoing HTTP requests.
-// It records request duration and counts for each unique combination of HTTP method, path and status code.
-// The metrics are tagged with the endpoint (method + path) and status code for detailed monitoring.
+// Transport returns a new http.RoundTripper that can be used in http.Client
+// to track metrics for outgoing HTTP requests.
+//
+// The metrics are:
+// - http_client_requests_total: Total number of outgoing HTTP requests.
+// - http_client_requests_inflight: Number of outgoing HTTP requests currently in flight.
+// - http_client_request_duration_seconds: Response latency in seconds for completed outgoing HTTP requests.
 func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(req *http.Request) (resp *http.Response, err error) {
@@ -74,10 +80,14 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 					labels.Host = req.URL.Host
 				}
 
-				// Record metrics
-				duration := time.Since(startTime).Seconds()
-				clientRequestHistogram.Observe(duration, labels)
+				// Track total number of requests.
 				clientRequestsCounter.Inc(labels)
+
+				// Observe histogram of completed requests.
+				if resp != nil {
+					duration := time.Since(startTime).Seconds()
+					clientRequestHistogram.Observe(duration, labels)
+				}
 			}()
 
 			if next != nil {

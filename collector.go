@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,11 +14,11 @@ import (
 )
 
 var (
-	requestsCounter  = CounterWith[requestLabels]("http_requests_total", "Total number of HTTP requests.")
-	inflightGauge    = GaugeWith[inflightLabels]("http_requests_inflight", "Number of HTTP requests currently in flight.")
-	requestHistogram = HistogramWith[requestLabels](
+	requestsCounter   = CounterWith[requestLabels]("http_requests_total", "Total number of incoming HTTP requests.")
+	inflightGauge     = GaugeWith[inflightLabels]("http_requests_inflight", "Number of incoming HTTP requests currently in flight.")
+	requestsHistogram = HistogramWith[histogramLabels](
 		"http_request_duration_seconds",
-		"Histogram of response latency (seconds) of HTTP requests.",
+		"Response latency in seconds for completed incoming HTTP requests.",
 		[]float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 25, 50, 100},
 	)
 )
@@ -33,19 +35,34 @@ type CollectorOpts struct {
 	Skip func(r *http.Request) bool
 }
 
+// Labels for the counter of total incoming HTTP requests.
 type requestLabels struct {
-	Host     string `label:"host"`
-	Status   string `label:"status"`
-	Endpoint string `label:"endpoint"`
-	Proto    string `label:"proto"`
+	Host          string `label:"host"`
+	Status        string `label:"status"`
+	Endpoint      string `label:"endpoint"`
+	Proto         string `label:"proto"`
+	ClientAborted bool   `label:"client_aborted"`
 }
 
+// Labels for the histogram of completed incoming HTTP requests (e.g., when client didn't abort request).
+type histogramLabels struct {
+	Status   string `label:"status"`
+	Endpoint string `label:"endpoint"`
+}
+
+// Labels for the gauge of in-flight incoming HTTP requests.
 type inflightLabels struct {
 	Host  string `label:"host"`
 	Proto string `label:"proto"`
 }
 
-// Collector returns HTTP middleware for tracking Prometheus metrics for incoming HTTP requests.
+// Collector returns HTTP middleware that automatically tracks Prometheus metrics
+// for incoming HTTP requests.
+//
+// The metrics are:
+// - http_requests_total: Total number of incoming HTTP requests.
+// - http_requests_inflight: Number of incoming HTTP requests currently in flight.
+// - http_request_duration_seconds: Response latency in seconds for completed incoming HTTP requests.
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,29 +88,40 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 				duration := time.Since(start).Seconds()
 				inflightGauge.Dec(inflightLabels)
 
-				var endpoint string
+				endpoint := "<no-match>"
 				if rctx := chi.RouteContext(r.Context()); rctx != nil {
 					if pattern := rctx.RoutePattern(); pattern != "" {
 						endpoint = fmt.Sprintf("%s %s", r.Method, pattern)
-					} else {
-						endpoint = "<no-match>"
 					}
 				}
 
-				status := strconv.Itoa(ww.Status())
-				if status == "0" {
-					status = "disconnected"
+				statusCode := ww.Status()
+				if statusCode == 0 {
+					// If the handler never calls w.WriteHeader(statusCode) explicitly,
+					// Go's http package automatically sends HTTP 200 OK to the client.
+					statusCode = 200
 				}
 
 				labels := requestLabels{
 					Host:     inflightLabels.Host,
-					Status:   status,
+					Status:   strconv.Itoa(statusCode),
 					Endpoint: endpoint,
 					Proto:    inflightLabels.Proto,
 				}
+				if errors.Is(r.Context().Err(), context.Canceled) {
+					labels.ClientAborted = true
+				}
 
+				// Track total number of requests.
 				requestsCounter.Inc(labels)
-				requestHistogram.Observe(duration, labels)
+
+				// Observe histogram of completed requests.
+				if !labels.ClientAborted {
+					requestsHistogram.Observe(duration, histogramLabels{
+						Status:   labels.Status,
+						Endpoint: labels.Endpoint,
+					})
+				}
 			}()
 
 			next.ServeHTTP(ww, r)
