@@ -1,8 +1,10 @@
 package metrics
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -57,9 +59,14 @@ func Transport(opts TransportOpts) func(http.RoundTripper) http.RoundTripper {
 				// Create labels based on enabled options
 				labels := outgoingRequestLabels{}
 
-				if resp != nil {
-					labels.Status = fmt.Sprintf("%d", resp.StatusCode)
-				} else {
+				switch {
+				case resp != nil:
+					labels.Status = strconv.Itoa(resp.StatusCode)
+				case errors.Is(err, context.DeadlineExceeded):
+					labels.Status = "timeout"
+				case errors.Is(err, context.Canceled):
+					labels.Status = "canceled"
+				default:
 					labels.Status = "error"
 				}
 
