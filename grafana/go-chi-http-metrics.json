@@ -1004,7 +1004,7 @@
           "format": "time_series",
           "instant": false,
           "interval": "",
-          "legendFormat": "HTTP 200 ← {{host}} → HTTP 200",
+          "legendFormat": "HTTP 200 ← {{host}}",
           "refId": "A"
         }
       ],
