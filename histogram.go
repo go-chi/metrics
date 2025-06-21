@@ -5,7 +5,7 @@ import "github.com/prometheus/client_golang/prometheus"
 // Histogram creates a histogram metric
 func Histogram(name, help string, buckets []float64) HistogramMetric {
 	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    mustBeValidMetricName(name),
+		Name:    mustValidMetricName(name),
 		Help:    help,
 		Buckets: buckets,
 	}, []string{})
@@ -16,10 +16,10 @@ func Histogram(name, help string, buckets []float64) HistogramMetric {
 // HistogramWith creates a histogram metric with typed labels
 func HistogramWith[T any](name, help string, buckets []float64) HistogramMetricLabeled[T] {
 	vec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    mustBeValidMetricName(name),
+		Name:    mustValidMetricName(name),
 		Help:    help,
 		Buckets: buckets,
-	}, mustStructLabelKeys[T]())
+	}, getLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return HistogramMetricLabeled[T]{vec: vec}
 }
@@ -38,5 +38,5 @@ type HistogramMetricLabeled[T any] struct {
 }
 
 func (h *HistogramMetricLabeled[T]) Observe(value float64, labels T) {
-	h.vec.With(mustStructLabels(labels)).Observe(value)
+	h.vec.With(getLabelValues(labels)).Observe(value)
 }

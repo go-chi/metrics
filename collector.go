@@ -42,7 +42,7 @@ type requestLabels struct {
 	Status        string `label:"status"`
 	Endpoint      string `label:"endpoint"`
 	Proto         string `label:"proto"`
-	ClientAborted bool   `label:"client_aborted"`
+	ClientAborted string `label:"client_aborted"`
 }
 
 // histogramLabels defines labels for the histogram of completed incoming HTTP requests.
@@ -107,20 +107,19 @@ func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
 					Endpoint: endpoint,
 					Proto:    inflightLabels.Proto,
 				}
+
 				if errors.Is(r.Context().Err(), context.Canceled) {
-					labels.ClientAborted = true
-				}
-
-				// Track total number of requests.
-				requestsCounter.Inc(labels)
-
-				// Observe histogram of completed requests.
-				if !labels.ClientAborted {
+					labels.ClientAborted = "true"
+				} else {
+					// Observe duration of completed requests.
 					requestsHistogram.Observe(duration, histogramLabels{
 						Status:   labels.Status,
 						Endpoint: labels.Endpoint,
 					})
 				}
+
+				// Track total number of requests.
+				requestsCounter.Inc(labels)
 			}()
 
 			next.ServeHTTP(ww, r)

@@ -5,7 +5,7 @@ import "github.com/prometheus/client_golang/prometheus"
 // Gauge creates a gauge metric
 func Gauge(name, help string) GaugeMetric {
 	vec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: mustBeValidMetricName(name),
+		Name: mustValidMetricName(name),
 		Help: help,
 	}, []string{})
 	prometheus.MustRegister(vec)
@@ -15,9 +15,9 @@ func Gauge(name, help string) GaugeMetric {
 // GaugeWith creates a gauge metric with typed labels
 func GaugeWith[T any](name, help string) GaugeMetricLabeled[T] {
 	vec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: mustBeValidMetricName(name),
+		Name: mustValidMetricName(name),
 		Help: help,
-	}, mustStructLabelKeys[T]())
+	}, getLabelKeys[T]())
 	prometheus.MustRegister(vec)
 	return GaugeMetricLabeled[T]{vec: vec}
 }
@@ -47,17 +47,17 @@ type GaugeMetricLabeled[T any] struct {
 }
 
 func (g *GaugeMetricLabeled[T]) Set(value float64, labels T) {
-	g.vec.With(mustStructLabels(labels)).Set(value)
+	g.vec.With(getLabelValues(labels)).Set(value)
 }
 
 func (g *GaugeMetricLabeled[T]) Add(value float64, labels T) {
-	g.vec.With(mustStructLabels(labels)).Add(value)
+	g.vec.With(getLabelValues(labels)).Add(value)
 }
 
 func (g *GaugeMetricLabeled[T]) Inc(labels T) {
-	g.vec.With(mustStructLabels(labels)).Add(1.0)
+	g.vec.With(getLabelValues(labels)).Add(1.0)
 }
 
 func (g *GaugeMetricLabeled[T]) Dec(labels T) {
-	g.vec.With(mustStructLabels(labels)).Add(-1.0)
+	g.vec.With(getLabelValues(labels)).Add(-1.0)
 }

@@ -101,20 +101,19 @@ type jobLabels struct {
 	Status string `label:"status"`
 }
 
-var jobCounter = metrics.CounterWith[jobLabels]("jobs_processed_total", "Number of jobs processed")
+var jobCounter = metrics.CounterWith[*jobLabels]("jobs_processed_total", "Number of jobs processed")
 
 func doWork(dur time.Duration) {
 	time.Sleep(dur)
 
 	if rand.Intn(100) > 90 {
-		jobCounter.Inc(jobLabels{Name: "job", Status: "success"})
+		jobCounter.Inc(&jobLabels{Name: "job", Status: "success"})
 	} else {
-		jobCounter.Inc(jobLabels{Name: "job", Status: "error"})
+		jobCounter.Inc(&jobLabels{Name: "job", Status: "error"})
 	}
 }
 
 func simulateTraffic() {
-
 	go func() {
 		for {
 			resp, err := http.DefaultClient.Get("http://example.com")
