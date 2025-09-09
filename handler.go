@@ -15,3 +15,12 @@ import (
 func Handler() http.Handler {
 	return promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
 }
+
+// HandlerFor returns an HTTP handler that serves Prometheus metrics from the provided registry
+// in the OpenMetrics exposition format.
+//
+// This handler should typically be mounted at "/metrics" and protected from public access,
+// e.g. via middleware.BasicAuth or exposed only on a private port.
+func HandlerFor(registry *prometheus.Registry) http.Handler {
+	return promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+}
