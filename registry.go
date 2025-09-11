@@ -2,7 +2,7 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
-func registerMetrics(registry *prometheus.Registry) {
+func registerMetrics(registry prometheus.Registerer) {
 	if registry == nil {
 		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 	}

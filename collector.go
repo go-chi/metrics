@@ -38,7 +38,7 @@ type CollectorOpts struct {
 
 	// Registry specifies the Prometheus registry to which the metrics will be registered.
 	// If nil, the default Prometheus registry is used.
-	Registry *prometheus.Registry
+	Registry prometheus.Registerer
 }
 
 // requestLabels defines labels for the counter of total incoming HTTP requests.
