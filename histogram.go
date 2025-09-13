@@ -9,7 +9,6 @@ func Histogram(name, help string, buckets []float64) HistogramMetric {
 		Help:    help,
 		Buckets: buckets,
 	}, []string{})
-	prometheus.MustRegister(vec)
 	return HistogramMetric{vec: vec}
 }
 
@@ -20,7 +19,6 @@ func HistogramWith[T any](name, help string, buckets []float64) HistogramMetricL
 		Help:    help,
 		Buckets: buckets,
 	}, getLabelKeys[T]())
-	prometheus.MustRegister(vec)
 	return HistogramMetricLabeled[T]{vec: vec}
 }
 
