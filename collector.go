@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -34,6 +35,10 @@ type CollectorOpts struct {
 	// Skip is an optional predicate function that determines whether to skip recording metrics for a given request.
 	// If nil, all requests are recorded. If provided, requests where Skip returns true will not be recorded.
 	Skip func(r *http.Request) bool
+
+	// Registry specifies the Prometheus registry to which the metrics will be registered.
+	// If nil, the default Prometheus registry is used.
+	Registry prometheus.Registerer
 }
 
 // requestLabels defines labels for the counter of total incoming HTTP requests.
@@ -63,6 +68,9 @@ type inflightLabels struct {
 // - http_requests_inflight: Number of incoming HTTP requests currently in flight
 // - http_request_duration_seconds: Response latency in seconds for completed requests
 func Collector(opts CollectorOpts) func(next http.Handler) http.Handler {
+
+	registerMetrics(opts.Registry)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if opts.Skip != nil && opts.Skip(r) {
