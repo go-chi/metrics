@@ -3,7 +3,7 @@
 > Go package for metrics collection in [OpenMetrics](https://github.com/prometheus/OpenMetrics/blob/main/specification/OpenMetrics.md) format.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/go-chi/metrics.svg)](https://pkg.go.dev/github.com/go-chi/metrics)
-[![Go Report Card](https://goreportcard.com/badge/github.com/go-chi/metrics)](https://goreportcard.com/report/github.com/go-chi/httplog)
+[![Go Report Card](https://goreportcard.com/badge/github.com/go-chi/metrics)](https://goreportcard.com/report/github.com/go-chi/metrics)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Features
